@@ -11,14 +11,13 @@ public class BlockchainExchange extends BaseExchange implements Exchange {
   @Override
   public ExchangeSpecification getDefaultExchangeSpecification() {
 
-    ExchangeSpecification exchangeSpecification =
-        new ExchangeSpecification(this.getClass().getCanonicalName());
-    exchangeSpecification.setPlainTextUri("https://blockchain.info");
-    exchangeSpecification.setHost("blockchain.info");
+    ExchangeSpecification exchangeSpecification = new ExchangeSpecification(this.getClass());
+    exchangeSpecification.setSslUri("https://blockchain.info");
+    exchangeSpecification.setHost("www.blockchain.com");
     exchangeSpecification.setPort(80);
     exchangeSpecification.setExchangeName("Blockchain");
     exchangeSpecification.setExchangeDescription(
-        "Blockchain provide an API for accessing the Botcoin Network.");
+        "Blockchain provide an API for accessing the Bitcoin Network.");
     return exchangeSpecification;
   }
 

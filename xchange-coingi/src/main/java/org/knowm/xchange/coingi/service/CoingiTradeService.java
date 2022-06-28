@@ -10,7 +10,12 @@ import org.knowm.xchange.Exchange;
 import org.knowm.xchange.coingi.CoingiAdapters;
 import org.knowm.xchange.coingi.CoingiErrorAdapter;
 import org.knowm.xchange.coingi.dto.CoingiException;
-import org.knowm.xchange.coingi.dto.trade.*;
+import org.knowm.xchange.coingi.dto.trade.CoingiCancelOrderRequest;
+import org.knowm.xchange.coingi.dto.trade.CoingiGetOrderHistoryRequest;
+import org.knowm.xchange.coingi.dto.trade.CoingiGetOrderRequest;
+import org.knowm.xchange.coingi.dto.trade.CoingiOrder;
+import org.knowm.xchange.coingi.dto.trade.CoingiOrdersList;
+import org.knowm.xchange.coingi.dto.trade.CoingiPlaceLimitOrderRequest;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.trade.LimitOrder;
@@ -69,7 +74,7 @@ public class CoingiTradeService extends CoingiTradeServiceRaw implements TradeSe
               .setCurrencyPair(CoingiAdapters.adaptCurrency(order.getCurrencyPair()))
               .setOrderType(order.getType().equals(BID) ? 0 : 1)
               .setPrice(order.getLimitPrice())
-              .setVolume(order.getRemainingAmount());
+              .setVolume(order.getOriginalAmount());
 
       return placeCoingiLimitOrder(request).getResult();
     } catch (CoingiException e) {

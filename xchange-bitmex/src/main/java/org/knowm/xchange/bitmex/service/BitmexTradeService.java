@@ -3,7 +3,6 @@ package org.knowm.xchange.bitmex.service;
 import static org.knowm.xchange.bitmex.dto.trade.BitmexSide.fromOrderType;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -16,6 +15,7 @@ import org.knowm.xchange.bitmex.dto.trade.BitmexExecutionInstruction;
 import org.knowm.xchange.bitmex.dto.trade.BitmexOrderFlags;
 import org.knowm.xchange.bitmex.dto.trade.BitmexPlaceOrderParameters;
 import org.knowm.xchange.bitmex.dto.trade.BitmexPlaceOrderParameters.Builder;
+import org.knowm.xchange.bitmex.dto.trade.BitmexReplaceOrderParameters;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.marketdata.Trades.TradeSortType;
 import org.knowm.xchange.dto.trade.LimitOrder;
@@ -31,9 +31,12 @@ import org.knowm.xchange.service.trade.params.CancelAllOrders;
 import org.knowm.xchange.service.trade.params.CancelOrderParams;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderParamId;
 import org.knowm.xchange.service.trade.params.TradeHistoryParamCurrencyPair;
+import org.knowm.xchange.service.trade.params.TradeHistoryParamLimit;
 import org.knowm.xchange.service.trade.params.TradeHistoryParamOffset;
 import org.knowm.xchange.service.trade.params.TradeHistoryParams;
+import org.knowm.xchange.service.trade.params.TradeHistoryParamsSorted;
 import org.knowm.xchange.service.trade.params.TradeHistoryParamsTimeSpan;
+import org.knowm.xchange.service.trade.params.orders.DefaultOpenOrdersParam;
 import org.knowm.xchange.service.trade.params.orders.OpenOrdersParams;
 
 public class BitmexTradeService extends BitmexTradeServiceRaw implements TradeService {
@@ -41,6 +44,11 @@ public class BitmexTradeService extends BitmexTradeServiceRaw implements TradeSe
   public BitmexTradeService(BitmexExchange exchange) {
 
     super(exchange);
+  }
+
+  @Override
+  public OpenOrdersParams createOpenOrdersParams() {
+    return new DefaultOpenOrdersParam();
   }
 
   @Override
@@ -55,13 +63,11 @@ public class BitmexTradeService extends BitmexTradeServiceRaw implements TradeSe
 
   @Override
   public OpenOrders getOpenOrders(OpenOrdersParams params) throws ExchangeException {
-    List<LimitOrder> limitOrders = new ArrayList<>();
-
-    for (LimitOrder order : getOpenOrders().getOpenOrders()) {
-      if (params.accept(order)) {
-        limitOrders.add(order);
-      }
-    }
+    List<LimitOrder> limitOrders =
+        super.getBitmexOrders(null, "{\"open\": true}", null, null, null).stream()
+            .map(BitmexAdapters::adaptOrder)
+            .filter(params::accept)
+            .collect(Collectors.toList());
 
     return new OpenOrders(limitOrders);
   }
@@ -109,6 +115,19 @@ public class BitmexTradeService extends BitmexTradeServiceRaw implements TradeSe
   }
 
   @Override
+  public String changeOrder(LimitOrder limitOrder) throws ExchangeException {
+
+    BitmexPrivateOrder order =
+        replaceOrder(
+            new BitmexReplaceOrderParameters.Builder()
+                .setOrderId(limitOrder.getId())
+                .setOrderQuantity(limitOrder.getOriginalAmount())
+                .setPrice(limitOrder.getLimitPrice())
+                .build());
+    return order.getId();
+  }
+
+  @Override
   public boolean cancelOrder(String orderId) throws ExchangeException {
     List<BitmexPrivateOrder> orders = cancelBitmexOrder(orderId);
 
@@ -144,6 +163,11 @@ public class BitmexTradeService extends BitmexTradeServiceRaw implements TradeSe
   }
 
   @Override
+  public TradeHistoryParams createTradeHistoryParams() {
+    return new BitmexTradeHistoryParams();
+  }
+
+  @Override
   public UserTrades getTradeHistory(TradeHistoryParams params) throws IOException {
     String symbol = null;
     if (params instanceof TradeHistoryParamCurrencyPair) {
@@ -162,10 +186,21 @@ public class BitmexTradeService extends BitmexTradeServiceRaw implements TradeSe
       startTime = timeSpan.getStartTime();
       endTime = timeSpan.getEndTime();
     }
+    int count = 100;
+    if (params instanceof TradeHistoryParamLimit) {
+      TradeHistoryParamLimit limit = (TradeHistoryParamLimit) params;
+      if (limit.getLimit() != null) {
+        count = limit.getLimit();
+      }
+    }
+
+    boolean reverse =
+        (params instanceof TradeHistoryParamsSorted)
+            && ((TradeHistoryParamsSorted) params).getOrder()
+                == TradeHistoryParamsSorted.Order.desc;
 
     List<UserTrade> userTrades =
-        getTradeHistory(symbol, null, null, null, start, false, startTime, endTime)
-            .stream()
+        getTradeHistory(symbol, null, null, count, start, reverse, startTime, endTime).stream()
             .map(BitmexAdapters::adoptUserTrade)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
